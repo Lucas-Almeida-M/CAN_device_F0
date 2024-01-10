@@ -1,0 +1,5 @@
+../Core/Src/freertos.c:111:6:MX_FREERTOS_Init	8	static
+../Core/Src/freertos.c:172:6:StartDefaultTask	16	static
+../Core/Src/freertos.c:190:13:ProcessCAN_MSG	16	static
+../Core/Src/freertos.c:208:13:SendCAN_MSG	16	static
+../Core/Src/freertos.c:226:13:Process_data_task	16	static

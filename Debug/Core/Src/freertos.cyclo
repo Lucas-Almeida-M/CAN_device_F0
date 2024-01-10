@@ -1,0 +1,5 @@
+freertos.c:111:6:MX_FREERTOS_Init	1
+freertos.c:172:6:StartDefaultTask	1
+freertos.c:190:13:ProcessCAN_MSG	1
+freertos.c:208:13:SendCAN_MSG	1
+freertos.c:226:13:Process_data_task	1
