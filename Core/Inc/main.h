@@ -56,9 +56,9 @@ extern "C" {
 
 typedef struct _signalQ
 {
-	float mod  [12];
-	float phase[12];
-	float freq [12];
+	float rms  [60];
+	float phase[60];
+	float freq [60];
 
 }SignalQ;
 
@@ -72,7 +72,12 @@ typedef struct _Data
 	float sensorData_values[3][64];
 }Data;
 
-
+typedef struct MeanValues
+{
+	float meanRMS;
+	float meanPhase;
+	float meanFreq;
+}MeanValues;
 
 /* USER CODE END ET */
 
@@ -90,9 +95,13 @@ typedef struct _Data
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+//void fill_data(CanPacket *message, MeanValues values);
+
 void calculate_analog(Data *data, SensorData *sensorData);
 void calculate_RMS(float RMS[], Data *data);
 void calculate_Phase(SensorData *data);
+void send_data_to_queue(MeanValues values[]);
+void calculate_mean(MeanValues sumValues[] , SignalQ signalQ[]);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

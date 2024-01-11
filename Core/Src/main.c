@@ -41,6 +41,7 @@
 #define SAMPLES_PER_TIME 64
 #define OFFSET 1
 #define CORRECTION_FACTOR 1
+#define CAN_DEVICE_ID DEVICE_1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -183,7 +184,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-void ProcessCAN_MSG(void *argument)
+void ReceiveCAN_MSG(void *argument)
 {
   /* USER CODE BEGIN ProcessCAN_MSG */
 	CanPacket canMSG = {0};
@@ -204,14 +205,25 @@ void ProcessCAN_MSG(void *argument)
 void SendCAN_MSG(void *argument)
 {
   /* USER CODE BEGIN SendCAN_MSG */
-	CanPacket canMSG = {0};
+	CanPacket canMsg = {0};
   /* Infinite loop */
   for(;;)
   {
-	BaseType_t xStatus = xQueueReceive(queue_can_sendHandle, &canMSG, portMAX_DELAY);
+	BaseType_t xStatus = xQueueReceive(queue_can_sendHandle, &canMsg, portMAX_DELAY);
 	if (xStatus == pdPASS)
 	{
 		// conseguiu tirar da fila
+
+		TxHeader.StdId             = canMsg.packet.canID;      // ID do dispositivo
+		TxHeader.RTR               = CAN_RTR_DATA;       		//(Remote Transmission Request) especifica Remote Fraame ou Data Frame.
+		TxHeader.IDE               = CAN_ID_STD;    			//define o tipo de id (standard ou extended
+		TxHeader.DLC               = CAN_SIZE;      			//Tamanho do pacote 0 - 8 bytes
+		TxHeader.TransmitGlobalTime = DISABLE;
+		int status = HAL_CAN_AddTxMessage (&hcan, &TxHeader, canMsg.packet.canBuffer.canData, &TxMailbox);
+		if(status)
+		{
+			Error_Handler();
+		}
 
 	}
     osDelay(1);
@@ -223,9 +235,11 @@ void SendCAN_MSG(void *argument)
 void Process_data_task(void *argument)
 {
   /* USER CODE BEGIN Process_data_task */
+	uint16_t count = 0;
+	SignalQ signalQ[3] = {0};
 	SensorData sensorData = {0};
+
 	Data data;
-	float RMS[3] = {0};
   /* Infinite loop */
   for(;;)
   {
@@ -234,9 +248,20 @@ void Process_data_task(void *argument)
 	{
 			// conseguiu tirar da fila
 		calculate_analog(&data, &sensorData);
-		calculate_RMS(RMS, &data);
-		calculate_Phase(&sensorData);
+//		calculate_RMS(signalQ,&data);
+//		calculate_Phase(signalQ,&data);
+//		calculate_freq(signalQ,&data);
+		count++;
+		if (count == SAMPLES_PER_TIME)
+		{
+			MeanValues meanValues[3] = {0};
+			calculate_mean(meanValues, signalQ);
+			send_data_to_queue(meanValues);
 
+			memset(signalQ, 0, sizeof(signalQ));
+			count = 0;
+		}
+		memset(&sensorData, 0, sizeof(sensorData));
 	}
     osDelay(1);
   }
@@ -309,27 +334,80 @@ void calculate_Phase(SensorData *data)
 
 }
 
-void fill_data(CanPacket *message, uint16_t adc, uint8_t pos, uint8_t sensor)
+void fill_data(CanPacket *message, MeanValues values)
 {
-	message->packet.data[CAN_HEADER + 3*pos] = sensor;
-	message->packet.data[CAN_HEADER + 3*pos + 1] = (uint8_t)(adc && 0xff00) >> 8;
-	message->packet.data[CAN_HEADER + 3*pos + 2] = (uint8_t)(adc && 0x00ff);
+	message->packet.canBuffer.canDataFields.data[0] = (uint8_t)( ( (uint16_t)values.meanRMS >> 8) & 0xFF);
+	message->packet.canBuffer.canDataFields.data[1] = (uint8_t)(   (uint16_t)values.meanRMS & 0xFF );
+
+	message->packet.canBuffer.canDataFields.data[2] = (uint8_t)( ( (uint16_t)values.meanPhase >> 8) & 0xFF);
+	message->packet.canBuffer.canDataFields.data[3] = (uint8_t)(   (uint16_t)values.meanPhase & 0xFF );
+
+	message->packet.canBuffer.canDataFields.data[4] = (uint8_t)( ( (uint16_t)values.meanFreq >> 8) & 0xFF);
+	message->packet.canBuffer.canDataFields.data[5] = (uint8_t)(   (uint16_t)values.meanFreq & 0xFF );
+
+	// teste correto da conversao para 2 uint8_t e ao contrario
+//    uint16_t testeint;
+//    uint8_t teste8;
+//    uint8_t teste82;
+//    float f = 1145.56;
+//    teste8 = (uint8_t)(((uint16_t)f >> 8) & 0xFF);
+//    teste82 = (uint8_t)((uint16_t)f  & 0xFF);
+//    printf("%d", ((uint16_t)teste8 << 8) |  teste82 );
 }
 
-void send_sensor_data(uint16_t *adc)
+void send_data_to_queue(MeanValues values[])
 {
-	uint8_t count = 0;
 	CanPacket message = {0};
-	message.packet.ctrl0.control = configs.boardID;
-	message.packet.ctrl1.control = 0; //revisar
-//	fill_data(&message, adc[i], count, i);
 
-	TxHeader.StdId             = DEVICE_1;     // ID do dispositivo
-	TxHeader.RTR               = CAN_RTR_DATA;       //(Remote Transmission Request) especifica Remote Fraame ou Data Frame.
-	TxHeader.IDE               = CAN_ID_STD;    //define o tipo de id (standard ou extended
-	TxHeader.DLC               = 8;      //Tamanho do pacote 0 - 8 bytes
-	TxHeader.TransmitGlobalTime = DISABLE;
+	for (int i = 0; i < 3; i++)
+	{
+		message.packet.canID = CAN_DEVICE_ID;
+		message.packet.canBuffer.canDataFields.ctrl0.value = 0; //revisar
+		message.packet.canBuffer.canDataFields.ctrl1.value = i; //numero do sensor
 
+		fill_data(&message, values[i]); // a cada tensao (a b c) envia uma mensagem can com rms, fase e freq
+
+		BaseType_t xStatus = xQueueSendToBackFromISR(queue_can_sendHandle, &message, 0);
+		if (xStatus != pdPASS)
+		{
+	//			fila estourou
+		}
+		HAL_Delay(1);
+	}
+
+
+
+
+}
+
+void calculate_mean(MeanValues meanValues[3] , SignalQ signalQ[3])
+{
+	float sumValues[3][3] = {0};
+	for (int i = 0; i < 60; i++)
+	{
+		sumValues[VA][0]  += signalQ[VA].rms[i];
+		sumValues[VA][1]  += signalQ[VB].phase[i];
+		sumValues[VA][2]  += signalQ[VC].freq[i];
+
+		sumValues[VB][0]   += signalQ[VA].rms[i];
+		sumValues[VB][1]  += signalQ[VB].phase[i];
+		sumValues[VB][2]  += signalQ[VC].freq[i];
+
+		sumValues[VC][0]  += signalQ[VA].rms[i];
+		sumValues[VC][1]  += signalQ[VB].phase[i];
+		sumValues[VC][2]  += signalQ[VC].freq[i];
+	}
+	meanValues[VA].meanRMS = sumValues[VA][0] / 64;
+	meanValues[VA].meanRMS = sumValues[VA][1] / 64;
+	meanValues[VA].meanRMS = sumValues[VA][2] / 64;
+
+	meanValues[VB].meanRMS = sumValues[VB][0] / 64;
+	meanValues[VB].meanRMS = sumValues[VB][1] / 64;
+	meanValues[VB].meanRMS = sumValues[VB][2] / 64;
+
+	meanValues[VC].meanRMS = sumValues[VC][0] / 64;
+	meanValues[VC].meanRMS = sumValues[VC][1] / 64;
+	meanValues[VC].meanRMS = sumValues[VC][2] / 64;
 }
 
 /* USER CODE END 4 */
@@ -361,7 +439,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			adc_count++;
 			if (adc_count == 64)
 			{
-				BaseType_t xStatus = xQueueSendToBackFromISR(queue_can_sendHandle, &sensorData.sensorData_buff, 0);
+				BaseType_t xStatus = xQueueSendToBackFromISR(queue_process_dataHandle, &sensorData.sensorData_buff, 0);
 				if (xStatus != pdPASS)
 				{
 //				 	fila estourou

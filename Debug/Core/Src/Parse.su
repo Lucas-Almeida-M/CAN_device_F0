@@ -1,6 +1,0 @@
-../Core/Src/Parse.c:8:6:ValidatePacket	24	static
-../Core/Src/Parse.c:23:6:DecodeCanPacket	32	static
-../Core/Src/Parse.c:36:6:CanWritePacket	24	static
-../Core/Src/Parse.c:58:6:LoadFilterList	24	static
-../Core/Src/Parse.c:66:6:ConfigFilterList	72	static
-../Core/Src/Parse.c:116:6:InitFilterList	80	static

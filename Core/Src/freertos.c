@@ -52,28 +52,28 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow7,
 };
-/* Definitions for ProcessCAN_MSG_ */
-osThreadId_t ProcessCAN_MSG_Handle;
-const osThreadAttr_t ProcessCAN_MSG__attributes = {
-  .name = "ProcessCAN_MSG_",
+/* Definitions for ReceiveCAN_MSG_ */
+osThreadId_t ReceiveCAN_MSG_Handle;
+const osThreadAttr_t ReceiveCAN_MSG__attributes = {
+  .name = "ReceiveCAN_MSG_",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityNormal7,
 };
 /* Definitions for SendCAN_MSG_ */
 osThreadId_t SendCAN_MSG_Handle;
 const osThreadAttr_t SendCAN_MSG__attributes = {
   .name = "SendCAN_MSG_",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityLow7,
 };
 /* Definitions for processDatatask */
 osThreadId_t processDatataskHandle;
 const osThreadAttr_t processDatatask_attributes = {
   .name = "processDatatask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityRealtime,
 };
 /* Definitions for queue_can_receive */
 osMessageQueueId_t queue_can_receiveHandle;
@@ -97,7 +97,7 @@ const osMessageQueueAttr_t queue_process_data_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
-void ProcessCAN_MSG(void *argument);
+void ReceiveCAN_MSG(void *argument);
 void SendCAN_MSG(void *argument);
 void Process_data_task(void *argument);
 
@@ -143,8 +143,8 @@ void MX_FREERTOS_Init(void) {
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* creation of ProcessCAN_MSG_ */
-  ProcessCAN_MSG_Handle = osThreadNew(ProcessCAN_MSG, NULL, &ProcessCAN_MSG__attributes);
+  /* creation of ReceiveCAN_MSG_ */
+  ReceiveCAN_MSG_Handle = osThreadNew(ReceiveCAN_MSG, NULL, &ReceiveCAN_MSG__attributes);
 
   /* creation of SendCAN_MSG_ */
   SendCAN_MSG_Handle = osThreadNew(SendCAN_MSG, NULL, &SendCAN_MSG__attributes);
@@ -180,22 +180,22 @@ void StartDefaultTask(void *argument)
   /* USER CODE END StartDefaultTask */
 }
 
-/* USER CODE BEGIN Header_ProcessCAN_MSG */
+/* USER CODE BEGIN Header_ReceiveCAN_MSG */
 /**
-* @brief Function implementing the ProcessCAN_MSG_ thread.
+* @brief Function implementing the ReceiveCAN_MSG_ thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_ProcessCAN_MSG */
-__weak void ProcessCAN_MSG(void *argument)
+/* USER CODE END Header_ReceiveCAN_MSG */
+__weak void ReceiveCAN_MSG(void *argument)
 {
-  /* USER CODE BEGIN ProcessCAN_MSG */
+  /* USER CODE BEGIN ReceiveCAN_MSG */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END ProcessCAN_MSG */
+  /* USER CODE END ReceiveCAN_MSG */
 }
 
 /* USER CODE BEGIN Header_SendCAN_MSG */

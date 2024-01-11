@@ -47,15 +47,32 @@ typedef union // Ini
 
 typedef struct control
 {
-	bool bitControl0 : 1;
-	bool bitControl1 : 1;
-	bool bitControl2 : 1;
-	bool bitControl3 : 1;
-	bool bitControl4 : 1;
-	bool bitControl5 : 1;
-	bool bitControl6 : 1;
-	bool bitControl7 : 1;
+	bool bit0 : 1;
+	bool bit1 : 1;
+	bool bit2 : 1;
+	bool bit3 : 1;
+	bool bit4 : 1;
+	bool bit5 : 1;
+	bool bit6 : 1;
+	bool bit7 : 1;
 }controlBit;
+
+typedef struct candata
+{
+	union Ctrl0
+	{
+		controlBit controlBits;
+		uint8_t value;
+	}ctrl0;
+
+	union ctrl1
+	{
+		controlBit controlBits;
+		uint8_t value;
+	}ctrl1;
+
+	uint8_t data [CAN_SIZE - CAN_HEADER];
+}CanData;
 
 typedef union CANPACKET
 {
@@ -63,20 +80,12 @@ typedef union CANPACKET
 	struct
 	{
 		uint8_t canID;
-		uint8_t seq;
-		union cont
+		union canbuf
 		{
-			controlBit controlBits;
-			uint8_t control;
-		}ctrl0;
+			CanData canDataFields;
+			uint8_t canData[8];
+		}canBuffer;
 
-		union cont1
-		{
-			controlBit controlBits;
-			uint8_t control;
-		}ctrl1;
-
-		uint8_t data [CAN_SIZE - CAN_HEADER];
 	}packet;
 
 } CanPacket;
