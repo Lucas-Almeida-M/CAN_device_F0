@@ -25,7 +25,7 @@
 CAN_TxHeaderTypeDef   TxHeader;
 CAN_RxHeaderTypeDef   RxHeader;
 CAN_FilterTypeDef     sFilterConfig;
-FilterList     filterList;
+CanFilterList     filterList;
 /* USER CODE END 0 */
 
 CAN_HandleTypeDef hcan;

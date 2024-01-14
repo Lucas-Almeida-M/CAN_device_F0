@@ -11,7 +11,7 @@
 #define STD_ID  0
 #define EXT_ID  1
 #define FILTER_TYPE_16 0
-#define FILTER_TYEPE_32 1
+#define FILTER_TYPE_32 1
 #define FILTER_MAX_NUM 14
 
 
@@ -29,21 +29,25 @@ typedef union // Ini
 
 	enum FilterIds
 	{
-		BROADCAST = 0x00,
-		BOARD_F7 = 0x01,
-		DEVICE_1 = 0X02, // HABILITAR DE ACORDO COM DEVICE
-//		DEVICE_2 = 0X03,
-//		DEVICE_3 = 0X04,
-//		DEVICE_4 = 0X05,
-//		DEVICE_5 = 0X06,
-//		DEVICE_6 = 0X07,
+		BROADCAST  = 0x00,
+		BOARD_F7   = 0x01,
+		DEVICE_1   = 0x02, // HABILITAR DE ACORDO COM DEVICE
+//		DEVICE_2   = 0x03,
+//		DEVICE_3   = 0x04,
+//		DEVICE_4   = 0x05,
+//		DEVICE_5   = 0x06,
+//		DEVICE_6   = 0x07,
+//		DEVICE_7   = 0x08,
+//		DEVICE_8   = 0x09,
+//		DEVICE_9   = 0x0A,
+//		DEVICE_10  = 0x0B,
 		CANID_COUNT
 
 	} FilterId;
 
 	uint32_t FilterIdList[CANID_COUNT];
 
-} FilterList;
+} CanFilterList;
 
 typedef struct control
 {
@@ -117,7 +121,7 @@ void ConfigFilterList (uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, u
 
 
 
-void LoadFilterList(FilterList *filterIdList);
+void LoadFilterList(CanFilterList *filterIdList);
 void InitFilterList(uint32_t *idList, uint8_t numFilters, uint8_t filterScale);
 
 

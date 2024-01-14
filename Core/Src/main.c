@@ -38,7 +38,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BOARD_ID 1
-#define SAMPLES_PER_TIME 64
+#define SAMPLES_PER_CYCLE 64
 #define OFFSET 1
 #define CORRECTION_FACTOR 1
 #define CAN_DEVICE_ID DEVICE_1
@@ -54,9 +54,6 @@
 /* USER CODE BEGIN PV */
 
 uint16_t adcint[4] = {0};
-extern uint32_t TxMailbox;
-uint8_t canRX[8] = {};
-uint8_t canTX[8] = {};
 extern module_cfg configs;
 bool aux = 0;
 uint16_t adc_count = 0;
@@ -65,9 +62,8 @@ extern uint16_t bufferTensao[64];
 extern uint16_t bufferTensaoVA[64];
 extern uint16_t bufferTensaoVB[64];
 extern uint16_t bufferTensaoVC[64];
-extern osMessageQueueId_t queue_can_sendHandle;
-extern osMessageQueueId_t queue_can_receiveHandle;
-extern osMessageQueueId_t queue_process_dataHandle;
+extern osMessageQId queue_can_sendHandle;
+extern osMessageQId queue_process_dataHandle;
 SignalQ sgnalQual[3] = {0};
 SensorData sensorData;
 
@@ -120,12 +116,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim2);
 
-	HAL_ADCEx_Calibration_Start(&hadc);
-	HAL_ADC_Start_DMA(&hadc, &adcint, 3);
+//	HAL_ADCEx_Calibration_Start(&hadc);
+//	HAL_ADC_Start_DMA(&hadc, &adcint, 3);
   /* USER CODE END 2 */
 
-  /* Init scheduler */
-  osKernelInitialize();  /* Call init function for freertos objects (in freertos.c) */
+  /* Call init function for freertos objects (in freertos.c) */
   MX_FREERTOS_Init();
 
   /* Start scheduler */
@@ -184,54 +179,6 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-void ReceiveCAN_MSG(void *argument)
-{
-  /* USER CODE BEGIN ProcessCAN_MSG */
-	CanPacket canMSG = {0};
-  /* Infinite loop */
-  for(;;)
-  {
-	BaseType_t xStatus = xQueueReceive(queue_can_receiveHandle, &canMSG, portMAX_DELAY);
-	if (xStatus == pdPASS)
-	{
-		// conseguiu tirar da fila
-
-	}
-    osDelay(1);
-  }
-  /* USER CODE END ProcessCAN_MSG */
-}
-
-void SendCAN_MSG(void *argument)
-{
-  /* USER CODE BEGIN SendCAN_MSG */
-	CanPacket canMsg = {0};
-  /* Infinite loop */
-  for(;;)
-  {
-	BaseType_t xStatus = xQueueReceive(queue_can_sendHandle, &canMsg, portMAX_DELAY);
-	if (xStatus == pdPASS)
-	{
-		// conseguiu tirar da fila
-
-		TxHeader.StdId             = canMsg.packet.canID;      // ID do dispositivo
-		TxHeader.RTR               = CAN_RTR_DATA;       		//(Remote Transmission Request) especifica Remote Fraame ou Data Frame.
-		TxHeader.IDE               = CAN_ID_STD;    			//define o tipo de id (standard ou extended
-		TxHeader.DLC               = CAN_SIZE;      			//Tamanho do pacote 0 - 8 bytes
-		TxHeader.TransmitGlobalTime = DISABLE;
-		int status = HAL_CAN_AddTxMessage (&hcan, &TxHeader, canMsg.packet.canBuffer.canData, &TxMailbox);
-		if(status)
-		{
-			Error_Handler();
-		}
-
-	}
-    osDelay(1);
-  }
-  /* USER CODE END SendCAN_MSG */
-}
-
-
 void Process_data_task(void *argument)
 {
   /* USER CODE BEGIN Process_data_task */
@@ -243,7 +190,7 @@ void Process_data_task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	BaseType_t xStatus = xQueueReceive(queue_process_dataHandle, &sensorData, portMAX_DELAY);
+	BaseType_t xStatus = xQueueReceive(queue_process_dataHandle, &sensorData, 0);
 	if (xStatus == pdPASS)
 	{
 			// conseguiu tirar da fila
@@ -252,7 +199,7 @@ void Process_data_task(void *argument)
 //		calculate_Phase(signalQ,&data);
 //		calculate_freq(signalQ,&data);
 		count++;
-		if (count == SAMPLES_PER_TIME)
+		if (count == SAMPLES_PER_CYCLE)
 		{
 			MeanValues meanValues[3] = {0};
 			calculate_mean(meanValues, signalQ);
@@ -268,45 +215,12 @@ void Process_data_task(void *argument)
   /* USER CODE END Process_data_task */
 }
 
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
 
-//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-
-	UartPacket uartPacket = {0};
-
-	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, canRX);
-
-	DecodeCanPacket(RxHeader.StdId, &uartPacket, canRX);
-
-//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-
-
-}
-
-void sendCanMsg_test(int delay)
-{
-	  uint8_t tx[7] = {1,2,3,4,5,6,7};
-	  TxHeader.StdId             = 0x0;     // ID do dispositivo
-	  TxHeader.RTR               = CAN_RTR_DATA;       //(Remote Transmission Request) especifica Remote Fraame ou Data Frame.
-	  TxHeader.IDE               = CAN_ID_STD;    //define o tipo de id (standard ou extended
-	  TxHeader.DLC               = 7;      //Tamanho do pacote 0 - 8 bytes
-	  TxHeader.TransmitGlobalTime = DISABLE;
-
-	  int status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, tx, &TxMailbox);
-	  if(status)
-	  {
-		 Error_Handler();
-	  }
-	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	  HAL_Delay(delay);
-}
 
 
 void calculate_analog(Data *data, SensorData *sensorData)
 {
-	for (int i = 0; i < SAMPLES_PER_TIME; i++)
+	for (int i = 0; i < SAMPLES_PER_CYCLE; i++)
 	{
 		data->sensorData_values[VA][i] = (( sensorData->sensorData_buff[VA][i] * MAX_ADC ) * MAX_ANALOG - OFFSET) * CORRECTION_FACTOR;
 		data->sensorData_values[VB][i] = (( sensorData->sensorData_buff[VB][i] * MAX_ADC ) * MAX_ANALOG - OFFSET) * CORRECTION_FACTOR;
@@ -318,15 +232,15 @@ void calculate_RMS(float RMS[], Data *data)
 {
 	float sum_square[3] = {0};
 
-	for (int i = 0; i < SAMPLES_PER_TIME; i++)
+	for (int i = 0; i < SAMPLES_PER_CYCLE; i++)
 	{
 		sum_square[VA] += data->sensorData_values[VA][i];
 		sum_square[VB] += data->sensorData_values[VB][i];
 	    sum_square[VC] += data->sensorData_values[VC][i];
 	}
-	RMS[VA] = sqrt(sum_square[VA] / SAMPLES_PER_TIME);
-	RMS[VB] = sqrt(sum_square[VB] / SAMPLES_PER_TIME);
-	RMS[VC] = sqrt(sum_square[VC] / SAMPLES_PER_TIME);
+	RMS[VA] = sqrt(sum_square[VA] / SAMPLES_PER_CYCLE);
+	RMS[VB] = sqrt(sum_square[VB] / SAMPLES_PER_CYCLE);
+	RMS[VC] = sqrt(sum_square[VC] / SAMPLES_PER_CYCLE);
 }
 
 void calculate_Phase(SensorData *data)
@@ -374,10 +288,6 @@ void send_data_to_queue(MeanValues values[])
 		}
 		HAL_Delay(1);
 	}
-
-
-
-
 }
 
 void calculate_mean(MeanValues meanValues[3] , SignalQ signalQ[3])
@@ -389,7 +299,7 @@ void calculate_mean(MeanValues meanValues[3] , SignalQ signalQ[3])
 		sumValues[VA][1]  += signalQ[VB].phase[i];
 		sumValues[VA][2]  += signalQ[VC].freq[i];
 
-		sumValues[VB][0]   += signalQ[VA].rms[i];
+		sumValues[VB][0]  += signalQ[VA].rms[i];
 		sumValues[VB][1]  += signalQ[VB].phase[i];
 		sumValues[VB][2]  += signalQ[VC].freq[i];
 
@@ -397,17 +307,17 @@ void calculate_mean(MeanValues meanValues[3] , SignalQ signalQ[3])
 		sumValues[VC][1]  += signalQ[VB].phase[i];
 		sumValues[VC][2]  += signalQ[VC].freq[i];
 	}
-	meanValues[VA].meanRMS = sumValues[VA][0] / 64;
-	meanValues[VA].meanRMS = sumValues[VA][1] / 64;
-	meanValues[VA].meanRMS = sumValues[VA][2] / 64;
+	meanValues[VA].meanRMS   = sumValues[VA][0] / 64;
+	meanValues[VA].meanPhase = sumValues[VA][1] / 64;
+	meanValues[VA].meanFreq  = sumValues[VA][2] / 64;
 
-	meanValues[VB].meanRMS = sumValues[VB][0] / 64;
-	meanValues[VB].meanRMS = sumValues[VB][1] / 64;
-	meanValues[VB].meanRMS = sumValues[VB][2] / 64;
+	meanValues[VB].meanRMS   = sumValues[VB][0] / 64;
+	meanValues[VB].meanPhase = sumValues[VB][1] / 64;
+	meanValues[VB].meanFreq  = sumValues[VB][2] / 64;
 
-	meanValues[VC].meanRMS = sumValues[VC][0] / 64;
-	meanValues[VC].meanRMS = sumValues[VC][1] / 64;
-	meanValues[VC].meanRMS = sumValues[VC][2] / 64;
+	meanValues[VC].meanRMS   = sumValues[VC][0] / 64;
+	meanValues[VC].meanPhase = sumValues[VC][1] / 64;
+	meanValues[VC].meanFreq  = sumValues[VC][2] / 64;
 }
 
 /* USER CODE END 4 */
@@ -431,7 +341,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
 	if(htim->Instance==TIM2)
 	{
-		if (adc_count < SAMPLES_PER_TIME)
+		if (adc_count < SAMPLES_PER_CYCLE)
 		{
 			sensorData.sensorData_buff[VA][adc_count] = bufferTensaoVA[adc_count];
 			sensorData.sensorData_buff[VB][adc_count] = bufferTensaoVB[adc_count];

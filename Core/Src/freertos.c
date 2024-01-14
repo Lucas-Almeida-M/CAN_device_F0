@@ -47,61 +47,41 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow7,
-};
-/* Definitions for ReceiveCAN_MSG_ */
-osThreadId_t ReceiveCAN_MSG_Handle;
-const osThreadAttr_t ReceiveCAN_MSG__attributes = {
-  .name = "ReceiveCAN_MSG_",
-  .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityNormal7,
-};
-/* Definitions for SendCAN_MSG_ */
-osThreadId_t SendCAN_MSG_Handle;
-const osThreadAttr_t SendCAN_MSG__attributes = {
-  .name = "SendCAN_MSG_",
-  .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityLow7,
-};
-/* Definitions for processDatatask */
-osThreadId_t processDatataskHandle;
-const osThreadAttr_t processDatatask_attributes = {
-  .name = "processDatatask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityRealtime,
-};
-/* Definitions for queue_can_receive */
-osMessageQueueId_t queue_can_receiveHandle;
-const osMessageQueueAttr_t queue_can_receive_attributes = {
-  .name = "queue_can_receive"
-};
-/* Definitions for queue_can_send */
-osMessageQueueId_t queue_can_sendHandle;
-const osMessageQueueAttr_t queue_can_send_attributes = {
-  .name = "queue_can_send"
-};
-/* Definitions for queue_process_data */
-osMessageQueueId_t queue_process_dataHandle;
-const osMessageQueueAttr_t queue_process_data_attributes = {
-  .name = "queue_process_data"
-};
+osThreadId defaultTaskHandle;
+osThreadId ReceiveCAN_MSG_Handle;
+osThreadId SendCAN_MSG_Handle;
+osThreadId processDatataskHandle;
+osMessageQId queue_can_receiveHandle;
+osMessageQId queue_can_sendHandle;
+osMessageQId queue_process_dataHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void *argument);
-void ReceiveCAN_MSG(void *argument);
-void SendCAN_MSG(void *argument);
-void Process_data_task(void *argument);
+void StartDefaultTask(void const * argument);
+void ReceiveCAN_MSG(void const * argument);
+void SendCAN_MSG(void const * argument);
+void Process_data_task(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+
+/* GetIdleTaskMemory prototype (linked to static allocation support) */
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
+
+/* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
+static StaticTask_t xIdleTaskTCBBuffer;
+static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
+
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
+{
+  *ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
+  *ppxIdleTaskStackBuffer = &xIdleStack[0];
+  *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
+  /* place for user code */
+}
+/* USER CODE END GET_IDLE_TASK_MEMORY */
 
 /**
   * @brief  FreeRTOS initialization
@@ -126,39 +106,42 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
-  /* creation of queue_can_receive */
-  queue_can_receiveHandle = osMessageQueueNew (4, sizeof(CanPacket), &queue_can_receive_attributes);
+  /* definition and creation of queue_can_receive */
+  osMessageQDef(queue_can_receive, 10, CanPacket);
+  queue_can_receiveHandle = osMessageCreate(osMessageQ(queue_can_receive), NULL);
 
-  /* creation of queue_can_send */
-  queue_can_sendHandle = osMessageQueueNew (4, sizeof(CanPacket), &queue_can_send_attributes);
+  /* definition and creation of queue_can_send */
+  osMessageQDef(queue_can_send, 10, CanPacket);
+  queue_can_sendHandle = osMessageCreate(osMessageQ(queue_can_send), NULL);
 
-  /* creation of queue_process_data */
-  queue_process_dataHandle = osMessageQueueNew (4, sizeof(SensorData), &queue_process_data_attributes);
+  /* definition and creation of queue_process_data */
+  osMessageQDef(queue_process_data, 10, SensorData);
+  queue_process_dataHandle = osMessageCreate(osMessageQ(queue_process_data), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityLow, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-  /* creation of ReceiveCAN_MSG_ */
-  ReceiveCAN_MSG_Handle = osThreadNew(ReceiveCAN_MSG, NULL, &ReceiveCAN_MSG__attributes);
+  /* definition and creation of ReceiveCAN_MSG_ */
+  osThreadDef(ReceiveCAN_MSG_, ReceiveCAN_MSG, osPriorityNormal, 0, 128);
+  ReceiveCAN_MSG_Handle = osThreadCreate(osThread(ReceiveCAN_MSG_), NULL);
 
-  /* creation of SendCAN_MSG_ */
-  SendCAN_MSG_Handle = osThreadNew(SendCAN_MSG, NULL, &SendCAN_MSG__attributes);
+  /* definition and creation of SendCAN_MSG_ */
+  osThreadDef(SendCAN_MSG_, SendCAN_MSG, osPriorityNormal, 0, 128);
+  SendCAN_MSG_Handle = osThreadCreate(osThread(SendCAN_MSG_), NULL);
 
-  /* creation of processDatatask */
-  processDatataskHandle = osThreadNew(Process_data_task, NULL, &processDatatask_attributes);
+  /* definition and creation of processDatatask */
+  osThreadDef(processDatatask, Process_data_task, osPriorityHigh, 0, 128);
+  processDatataskHandle = osThreadCreate(osThread(processDatatask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
 
 }
 
@@ -169,7 +152,7 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
@@ -187,7 +170,7 @@ void StartDefaultTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_ReceiveCAN_MSG */
-__weak void ReceiveCAN_MSG(void *argument)
+__weak void ReceiveCAN_MSG(void const * argument)
 {
   /* USER CODE BEGIN ReceiveCAN_MSG */
   /* Infinite loop */
@@ -205,7 +188,7 @@ __weak void ReceiveCAN_MSG(void *argument)
 * @retval None
 */
 /* USER CODE END Header_SendCAN_MSG */
-__weak void SendCAN_MSG(void *argument)
+__weak void SendCAN_MSG(void const * argument)
 {
   /* USER CODE BEGIN SendCAN_MSG */
   /* Infinite loop */
@@ -223,7 +206,7 @@ __weak void SendCAN_MSG(void *argument)
 * @retval None
 */
 /* USER CODE END Header_Process_data_task */
-__weak void Process_data_task(void *argument)
+__weak void Process_data_task(void const * argument)
 {
   /* USER CODE BEGIN Process_data_task */
   /* Infinite loop */

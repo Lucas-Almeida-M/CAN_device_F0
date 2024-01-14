@@ -19,20 +19,6 @@ bool ValidatePacket(uint8_t canID)
 }
 
 
-
-void DecodeCanPacket(uint32_t canID, UartPacket *uartPacket, uint8_t *buffer)// decodifica o pacote can
-{
-
-	uartPacket->packet.canID =  (uint8_t) canID;
-	uartPacket->packet.seq =  buffer[0];
-	uartPacket->packet.crtl =  buffer[1];
-
-	for (int i = 0; i < 6; i++)
-	{
-		uartPacket->packet.data[i] = buffer [i + 2];
-	}
-}
-
 bool CanWritePacket(uint32_t id, uint8_t *buffer, uint8_t can_rtr, uint16_t tamanho)
 {
 
@@ -55,7 +41,7 @@ bool CanWritePacket(uint32_t id, uint8_t *buffer, uint8_t can_rtr, uint16_t tama
 	return true;
 }
 
-void LoadFilterList(FilterList *filterIdList) {
+void LoadFilterList(CanFilterList *filterIdList) {
 
 	for (int i = 0; i < CANID_COUNT; i++) {
 
@@ -71,7 +57,7 @@ void ConfigFilterList (uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, u
     filterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
     filterConfig.FilterBank = filterBank;
 
-    if (filterScale == FILTER_TYEPE_32) {
+    if (filterScale == FILTER_TYPE_32) {
 
         filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
         filterConfig.FilterMode = CAN_FILTERMODE_IDLIST;
@@ -128,7 +114,7 @@ void InitFilterList(uint32_t *idList, uint8_t numFilters, uint8_t filterScale)
 	}
 
 
-	if (filterScale == FILTER_TYEPE_32) //Utilizando o registrados em 32bits
+	if (filterScale == FILTER_TYPE_32) //Utilizando o registrados em 32bits
 	{
 		for (id = 0; id < numFilters && filterBankCounter < maxFilterBanks; id += 2)
 		{
